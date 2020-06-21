@@ -236,18 +236,24 @@ void bar_refresh(struct bar *bar)
             int index = mission_control_index(space_list[i]) - 1;
 
             struct bar_line space_line = index >= buf_len(g_bar_manager.space_icon_strip)
-              ? g_bar_manager.space_icon
-              : g_bar_manager.space_icon_strip[index];
+                                       ? g_bar_manager.space_icon
+                                       : g_bar_manager.space_icon_strip[index];
             if (i == 0) {
-              pos = bar_align_line(bar, space_line, ALIGN_LEFT, ALIGN_CENTER);
+                pos = bar_align_line(bar, space_line, ALIGN_LEFT, ALIGN_CENTER);
             } else {
-              pos.x += 25;
+                pos.x += 25;
             }
 
-            if (sid == space_list[i]) {
-              space_line.color = g_bar_manager.space_icon_color;
-            }
             bar_draw_line(bar, space_line, pos.x, pos.y);
+
+            if (sid == space_list[i]) {
+                CGPoint new_pos = CGContextGetTextPosition(bar->context);
+                struct bar_line mark_line = g_bar_manager.space_underline;
+                CGPoint mark_pos = bar_align_line(bar, mark_line, 0, ALIGN_BOTTOM);
+                mark_pos.x = mark_pos.x - mark_line.bounds.size.width / 2 - space_line.bounds.size.width / 2;
+                bar_draw_line(bar, mark_line, mark_pos.x, mark_pos.y);
+                CGContextSetTextPosition(bar->context, new_pos.x, new_pos.y);
+            }
 
             final_bar_left_x = pos.x + space_line.bounds.size.width + 10;
         }
@@ -267,6 +273,7 @@ void bar_refresh(struct bar *bar)
     if (timeinfo) {
         char time[255];
         strftime(time, sizeof(time), g_bar_manager._clock_format, timeinfo);
+        //snprintf(time, sizeof(time), "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
         struct bar_line time_line = bar_prepare_line(g_bar_manager.t_font, time, g_bar_manager.foreground_color);
         CGPoint t_pos = bar_align_line(bar, time_line, ALIGN_RIGHT, ALIGN_CENTER);
         bar_draw_line(bar, time_line, t_pos.x, t_pos.y);
@@ -274,8 +281,14 @@ void bar_refresh(struct bar *bar)
         CGPoint ti_pos = bar_align_line(bar, g_bar_manager.clock_icon, 0, ALIGN_CENTER);
         ti_pos.x = t_pos.x - g_bar_manager.clock_icon.bounds.size.width - 5;
 
-	bar_draw_line(bar, g_bar_manager.clock_icon, ti_pos.x, ti_pos.y);
+        CGPoint tu_pos = bar_align_line(bar, g_bar_manager.clock_underline, 0, ALIGN_BOTTOM);
+        tu_pos.x = tu_pos.x - g_bar_manager.clock_underline.bounds.size.width / 2 - time_line.bounds.size.width / 2 - (g_bar_manager.clock_icon.bounds.size.width + 5) / 2;
+
+        bar_draw_line(bar, g_bar_manager.clock_icon, ti_pos.x, ti_pos.y);
+        bar_draw_line(bar, g_bar_manager.clock_underline, tu_pos.x, tu_pos.y);
         bar_destroy_line(time_line);
+
+        initial_bar_right_x = tu_pos.x - 10;
     }
 
     bool has_batt = false;
@@ -287,15 +300,21 @@ void bar_refresh(struct bar *bar)
 
         struct bar_line batt_line = bar_prepare_line(g_bar_manager.t_font, batt, g_bar_manager.foreground_color);
         CGPoint p_pos = bar_align_line(bar, batt_line, ALIGN_RIGHT, ALIGN_CENTER);
-        p_pos.x = p_pos.x - time_line_width - 70;
+        p_pos.x = p_pos.x - time_line_width - g_bar_manager.clock_underline.bounds.size.width - 20;
         bar_draw_line(bar, batt_line, p_pos.x, p_pos.y);
 
         struct bar_line batt_icon = charging ? g_bar_manager.power_icon : g_bar_manager.battr_icon;
         CGPoint pi_pos = bar_align_line(bar, batt_icon, 0, ALIGN_CENTER);
         pi_pos.x = p_pos.x - batt_icon.bounds.size.width - 5;
 
-	bar_draw_line(bar, batt_icon, pi_pos.x, pi_pos.y);
-	bar_destroy_line(batt_line);
+        CGPoint pu_pos = bar_align_line(bar, g_bar_manager.power_underline, 0, ALIGN_BOTTOM);
+        pu_pos.x = pu_pos.x - g_bar_manager.power_underline.bounds.size.width / 2 - batt_line.bounds.size.width / 2 - (batt_icon.bounds.size.width + 5) / 2;
+
+        bar_draw_line(bar, batt_icon, pi_pos.x, pi_pos.y);
+        bar_draw_line(bar, g_bar_manager.power_underline, pu_pos.x, pu_pos.y);
+        bar_destroy_line(batt_line);
+
+        initial_bar_right_x = pu_pos.x - 10;
     }
 
     // BAR CENTER
